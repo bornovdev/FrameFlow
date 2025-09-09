@@ -57,9 +57,9 @@ app.use((req, res, next) => {
   }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Default to 3002 if not specified.
+  // Default to 3001 if not specified.
   // This serves both the API and the client.
-  const port = parseInt(process.env.PORT || '3002', 10);
+  const port = parseInt(process.env.PORT || '3001', 10);
   
   console.log('Attempting to start server...');
   console.log('Environment:', process.env.NODE_ENV);
