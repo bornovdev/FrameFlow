@@ -24,9 +24,6 @@ function Router() {
   return (
     <Switch>
       <ProtectedRoute path="/" component={HomePage} />
-      <ProtectedRoute path="/sunglasses" component={() => <CategoryPage categorySlug="sunglasses" />} />
-      <ProtectedRoute path="/prescription-glasses" component={() => <CategoryPage categorySlug="prescription-glasses" />} />
-      <ProtectedRoute path="/reading-glasses" component={() => <CategoryPage categorySlug="reading-glasses" />} />
       <ProtectedRoute path="/collections" component={CollectionsPage} />
       <ProtectedRoute path="/collections/:slug" component={CollectionPage} />
       <ProtectedRoute path="/orders" component={OrdersPage} />
