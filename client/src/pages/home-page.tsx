@@ -109,7 +109,7 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="group cursor-pointer">
+              <div className="group cursor-pointer" onClick={() => setLocation('/collections?category=prescription')}>
                 <div className="bg-card rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300">
                   <img 
                     src="https://images.unsplash.com/photo-1509695507497-903c140c43b0?auto=format&fit=crop&w=600&h=400" 
@@ -124,7 +124,7 @@ export default function HomePage() {
                 </div>
               </div>
               
-              <div className="group cursor-pointer">
+              <div className="group cursor-pointer" onClick={() => setLocation('/collections?category=sunglasses')}>
                 <div className="bg-card rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300">
                   <img 
                     src="https://images.unsplash.com/photo-1572635196237-14b3f281503f?auto=format&fit=crop&w=600&h=400" 
@@ -139,7 +139,7 @@ export default function HomePage() {
                 </div>
               </div>
               
-              <div className="group cursor-pointer">
+              <div className="group cursor-pointer" onClick={() => setLocation('/collections?category=reading')}>
                 <div className="bg-card rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300">
                   <img 
                     src="https://images.unsplash.com/photo-1556306535-38febf6782e7?auto=format&fit=crop&w=600&h=400" 
