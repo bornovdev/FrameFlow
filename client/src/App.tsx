@@ -12,6 +12,7 @@ import AuthPage from "@/pages/auth-page";
 import ProductDetail from "@/pages/product-detail";
 import CategoryPage from "@/pages/category-page";
 import CollectionsPage from "@/pages/collections-page";
+import CollectionPage from "@/pages/collections/[slug]";
 import OrdersPage from "@/pages/orders-page";
 import SettingsPage from "@/pages/settings-page";
 import Checkout from "@/pages/checkout";
@@ -27,6 +28,7 @@ function Router() {
       <ProtectedRoute path="/prescription-glasses" component={() => <CategoryPage categorySlug="prescription-glasses" />} />
       <ProtectedRoute path="/reading-glasses" component={() => <CategoryPage categorySlug="reading-glasses" />} />
       <ProtectedRoute path="/collections" component={CollectionsPage} />
+      <ProtectedRoute path="/collections/:slug" component={CollectionPage} />
       <ProtectedRoute path="/orders" component={OrdersPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
       <ProtectedRoute path="/product/:slug" component={ProductDetail} />

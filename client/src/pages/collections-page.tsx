@@ -8,7 +8,120 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, Grid, List } from "lucide-react";
+import { Search, Filter, Grid, List, ArrowRight } from "lucide-react";
+import { Link } from "wouter";
+
+// Dummy data for featured collections
+const featuredCollections = [
+  {
+    id: "prescription-frames",
+    name: "Prescription Frames",
+    description: "Stylish and comfortable frames for your prescription lenses",
+    slug: "prescription-frames",
+    products: [
+      {
+        id: "pf1",
+        name: "Classic Black Frames",
+        price: "129.99",
+        image: "/placeholder-prescription-1.jpg",
+        categoryId: "prescription-frames"
+      },
+      {
+        id: "pf2",
+        name: "Tortoise Shell",
+        price: "149.99",
+        image: "/placeholder-prescription-2.jpg",
+        categoryId: "prescription-frames"
+      },
+      {
+        id: "pf3",
+        name: "Round Gold Frames",
+        price: "169.99",
+        image: "/placeholder-prescription-3.jpg",
+        categoryId: "prescription-frames"
+      },
+      {
+        id: "pf4",
+        name: "Aviator Style",
+        price: "159.99",
+        image: "/placeholder-prescription-4.jpg",
+        categoryId: "prescription-frames"
+      }
+    ]
+  },
+  {
+    id: "sunglasses",
+    name: "Sunglasses",
+    description: "Protect your eyes with our stylish sunglasses collection",
+    slug: "sunglasses",
+    products: [
+      {
+        id: "sg1",
+        name: "Classic Aviator",
+        price: "129.99",
+        image: "/placeholder-sunglasses-1.jpg",
+        categoryId: "sunglasses"
+      },
+      {
+        id: "sg2",
+        name: "Wayfarer Black",
+        price: "119.99",
+        image: "/placeholder-sunglasses-2.jpg",
+        categoryId: "sunglasses"
+      },
+      {
+        id: "sg3",
+        name: "Cat Eye",
+        price: "139.99",
+        image: "/placeholder-sunglasses-3.jpg",
+        categoryId: "sunglasses"
+      },
+      {
+        id: "sg4",
+        name: "Sport Wraparound",
+        price: "149.99",
+        image: "/placeholder-sunglasses-4.jpg",
+        categoryId: "sunglasses"
+      }
+    ]
+  },
+  {
+    id: "reading-glasses",
+    name: "Reading Glasses",
+    description: "Comfortable and stylish reading glasses for every need",
+    slug: "reading-glasses",
+    products: [
+      {
+        id: "rg1",
+        name: "Slim Metal Frame",
+        price: "59.99",
+        image: "/placeholder-reading-1.jpg",
+        categoryId: "reading-glasses"
+      },
+      {
+        id: "rg2",
+        name: "Classic Black",
+        price: "49.99",
+        image: "/placeholder-reading-2.jpg",
+        categoryId: "reading-glasses"
+      },
+      {
+        id: "rg3",
+        name: "Half-Rim Design",
+        price: "69.99",
+        image: "/placeholder-reading-3.jpg",
+        categoryId: "reading-glasses"
+      },
+      {
+        id: "rg4",
+        name: "Folding Portable",
+        price: "79.99",
+        image: "/placeholder-reading-4.jpg",
+        categoryId: "reading-glasses"
+      }
+    ]
+  }
+];
 
 export default function CollectionsPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -16,12 +129,42 @@ export default function CollectionsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  // Fetch all products
+  // Get all products from featured collections
+  const allProducts = featuredCollections.flatMap(collection => 
+    collection.products.map(product => ({
+      ...product,
+      images: [product.image],
+      description: product.description || `${product.name} - Premium quality eyewear`,
+      brand: "FrameFlow",
+      categoryId: collection.id,
+      category: {
+        id: collection.id,
+        name: collection.name,
+        description: collection.description,
+        slug: collection.slug
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }))
+  );
+
+  // Get unique categories from products
+  const categories = Array.from(new Set(allProducts.map(p => p.categoryId))).map(id => {
+    const product = allProducts.find(p => p.categoryId === id);
+    return product?.category || {
+      id,
+      name: id.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+      description: '',
+      slug: id
+    };
+  });
+
   const { data: products, isLoading: productsLoading } = useQuery<Product[]>({
-    queryKey: ["/api/products"],
+    queryKey: ["products"],
+    queryFn: async () => allProducts,
     select: (data) => {
       // Filter by category and search query
-      let filtered = data;
+      let filtered = [...data]; // Create a copy to avoid mutating the original array
       
       if (selectedCategory !== "all") {
         filtered = filtered.filter(product => product.categoryId === selectedCategory);
@@ -53,22 +196,33 @@ export default function CollectionsPage() {
     },
   });
 
-  // Fetch categories
-  const { data: categories } = useQuery<Category[]>({
+  // Use categories from products
+  const { data: remoteCategories } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
+    initialData: categories, // Use local categories as fallback
   });
+  
+  const allCategories = remoteCategories || categories;
 
   // Group products by category for featured collections
-  const productsByCategory = categories?.map(category => ({
-    category,
-    products: products?.filter(product => product.categoryId === category.id).slice(0, 4) || []
-  })) || [];
+  const productsByCategory = categories.map(category => ({
+    category: {
+      id: category.id,
+      name: category.name,
+      description: category.description,
+      slug: category.slug,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    products: allProducts.filter(p => p.categoryId === category.id).slice(0, 4) // Show first 4 products per category
+  }));
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
       
-      <main className="container mx-auto px-4 py-8">
+      <main className="flex-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-4" data-testid="collections-title">
@@ -99,15 +253,25 @@ export default function CollectionsPage() {
                         {category.description}
                       </p>
                     </div>
-                    <Button variant="outline" data-testid={`view-all-${category.slug}`}>
-                      View All
-                    </Button>
+                    <Link href={`/collections/${category.slug}`}>
+                      <Button variant="outline" data-testid={`view-all-${category.slug}`}>
+                        View All <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
                   </div>
                   
                   {categoryProducts.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                       {categoryProducts.map((product) => (
-                        <ProductCard key={product.id} product={product} />
+                        <div key={product.id} className="h-full">
+                          <ProductCard 
+                            product={{
+                              ...product,
+                              images: [product.image],
+                              description: product.description || `${product.name} - Premium quality eyewear`
+                            }} 
+                          />
+                        </div>
                       ))}
                     </div>
                   ) : (
@@ -201,7 +365,15 @@ export default function CollectionsPage() {
                   : "space-y-4"
               }>
                 {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <div key={product.id} className="h-full">
+                    <ProductCard 
+                      product={{
+                        ...product,
+                        images: product.images || [''],
+                        description: product.description || `${product.name} - Premium quality eyewear`
+                      }} 
+                    />
+                  </div>
                 ))}
               </div>
             ) : (
@@ -222,6 +394,7 @@ export default function CollectionsPage() {
             )}
           </TabsContent>
         </Tabs>
+        </div>
       </main>
 
       <Footer />
