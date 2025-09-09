@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Product, Category } from "@shared/schema";
 import Header from "@/components/header";
@@ -10,212 +10,60 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Filter, Grid, List, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
-
-// Dummy data for featured collections
-const featuredCollections = [
-  {
-    id: "prescription-frames",
-    name: "Prescription Frames",
-    description: "Stylish and comfortable frames for your prescription lenses",
-    slug: "prescription-frames",
-    products: [
-      {
-        id: "pf1",
-        name: "Classic Black Frames",
-        price: "129.99",
-        image: "/placeholder-prescription-1.jpg",
-        categoryId: "prescription-frames"
-      },
-      {
-        id: "pf2",
-        name: "Tortoise Shell",
-        price: "149.99",
-        image: "/placeholder-prescription-2.jpg",
-        categoryId: "prescription-frames"
-      },
-      {
-        id: "pf3",
-        name: "Round Gold Frames",
-        price: "169.99",
-        image: "/placeholder-prescription-3.jpg",
-        categoryId: "prescription-frames"
-      },
-      {
-        id: "pf4",
-        name: "Aviator Style",
-        price: "159.99",
-        image: "/placeholder-prescription-4.jpg",
-        categoryId: "prescription-frames"
-      }
-    ]
-  },
-  {
-    id: "sunglasses",
-    name: "Sunglasses",
-    description: "Protect your eyes with our stylish sunglasses collection",
-    slug: "sunglasses",
-    products: [
-      {
-        id: "sg1",
-        name: "Classic Aviator",
-        price: "129.99",
-        image: "/placeholder-sunglasses-1.jpg",
-        categoryId: "sunglasses"
-      },
-      {
-        id: "sg2",
-        name: "Wayfarer Black",
-        price: "119.99",
-        image: "/placeholder-sunglasses-2.jpg",
-        categoryId: "sunglasses"
-      },
-      {
-        id: "sg3",
-        name: "Cat Eye",
-        price: "139.99",
-        image: "/placeholder-sunglasses-3.jpg",
-        categoryId: "sunglasses"
-      },
-      {
-        id: "sg4",
-        name: "Sport Wraparound",
-        price: "149.99",
-        image: "/placeholder-sunglasses-4.jpg",
-        categoryId: "sunglasses"
-      }
-    ]
-  },
-  {
-    id: "reading-glasses",
-    name: "Reading Glasses",
-    description: "Comfortable and stylish reading glasses for every need",
-    slug: "reading-glasses",
-    products: [
-      {
-        id: "rg1",
-        name: "Slim Metal Frame",
-        price: "59.99",
-        image: "/placeholder-reading-1.jpg",
-        categoryId: "reading-glasses"
-      },
-      {
-        id: "rg2",
-        name: "Classic Black",
-        price: "49.99",
-        image: "/placeholder-reading-2.jpg",
-        categoryId: "reading-glasses"
-      },
-      {
-        id: "rg3",
-        name: "Half-Rim Design",
-        price: "69.99",
-        image: "/placeholder-reading-3.jpg",
-        categoryId: "reading-glasses"
-      },
-      {
-        id: "rg4",
-        name: "Folding Portable",
-        price: "79.99",
-        image: "/placeholder-reading-4.jpg",
-        categoryId: "reading-glasses"
-      }
-    ]
-  }
-];
+import { api } from "@/services/api";
 
 export default function CollectionsPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("newest");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
 
-  // Get all products from featured collections
-  const allProducts = featuredCollections.flatMap(collection => 
-    collection.products.map(product => ({
-      ...product,
-      images: [product.image],
-      description: product.description || `${product.name} - Premium quality eyewear`,
-      brand: "FrameFlow",
-      categoryId: collection.id,
-      category: {
-        id: collection.id,
-        name: collection.name,
-        description: collection.description,
-        slug: collection.slug
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }))
-  );
+  // Debounce search query
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [searchQuery]);
+
+  // Fetch all categories
+  const { data: categories = [], isLoading: isLoadingCategories } = useQuery<Category[]>({
+    queryKey: ['categories'],
+    queryFn: () => api.getCategories(),
+  });
+
+  // Fetch products with filters
+  const { data: products = [], isLoading: isLoadingProducts } = useQuery<Product[]>({
+    queryKey: ['products', { category: selectedCategory, search: debouncedSearchQuery, sort: sortBy }],
+    queryFn: () => api.getProducts({
+      categoryId: selectedCategory !== 'all' ? selectedCategory : undefined,
+      search: debouncedSearchQuery || undefined,
+      sortBy: sortBy,
+    }),
+  });
+
+  // Fetch featured products by category
+  const { data: featuredProductsByCategory = [] } = useQuery<Array<{ category: Category; products: Product[] }>>({
+    queryKey: ['featured-products-by-category'],
+    queryFn: async () => {
+      const featuredCategories = categories.slice(0, 3); // Get first 3 categories for featured sections
+      const results = await Promise.all(
+        featuredCategories.map(async (category) => {
+          const products = await api.getProductsByCategory(category.id, 4);
+          return { category, products };
+        })
+      );
+      return results.filter(item => item.products.length > 0);
+    },
+    enabled: categories.length > 0,
+  });
 
   // Get unique categories from products
-  const categories = Array.from(new Set(allProducts.map(p => p.categoryId))).map(id => {
-    const product = allProducts.find(p => p.categoryId === id);
-    return product?.category || {
-      id,
-      name: id.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
-      description: '',
-      slug: id
-    };
-  });
-
-  const { data: products, isLoading: productsLoading } = useQuery<Product[]>({
-    queryKey: ["products"],
-    queryFn: async () => allProducts,
-    select: (data) => {
-      // Filter by category and search query
-      let filtered = [...data]; // Create a copy to avoid mutating the original array
-      
-      if (selectedCategory !== "all") {
-        filtered = filtered.filter(product => product.categoryId === selectedCategory);
-      }
-      
-      if (searchQuery) {
-        filtered = filtered.filter(product => 
-          product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.brand?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      }
-
-      // Sort products
-      switch (sortBy) {
-        case "price-low":
-          return filtered.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
-        case "price-high":
-          return filtered.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
-        case "name":
-          return filtered.sort((a, b) => a.name.localeCompare(b.name));
-        case "brand":
-          return filtered.sort((a, b) => (a.brand || "").localeCompare(b.brand || ""));
-        default: // newest
-          return filtered.sort((a, b) => 
-            new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-          );
-      }
-    },
-  });
-
-  // Use categories from products
-  const { data: remoteCategories } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
-    initialData: categories, // Use local categories as fallback
-  });
-  
-  const allCategories = remoteCategories || categories;
-
-  // Group products by category for featured collections
-  const productsByCategory = categories.map(category => ({
-    category: {
-      id: category.id,
-      name: category.name,
-      description: category.description,
-      slug: category.slug,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    },
-    products: allProducts.filter(p => p.categoryId === category.id).slice(0, 4) // Show first 4 products per category
-  }));
+  const allCategories = categories;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -242,7 +90,7 @@ export default function CollectionsPage() {
           {/* Featured Collections Tab */}
           <TabsContent value="featured">
             <div className="space-y-12">
-              {productsByCategory.map(({ category, products: categoryProducts }) => (
+              {featuredProductsByCategory.map(({ category, products: categoryProducts }) => (
                 <div key={category.id} className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -267,7 +115,6 @@ export default function CollectionsPage() {
                           <ProductCard 
                             product={{
                               ...product,
-                              images: [product.image],
                               description: product.description || `${product.name} - Premium quality eyewear`
                             }} 
                           />
@@ -305,11 +152,15 @@ export default function CollectionsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  {categories?.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
+                  {isLoadingCategories ? (
+                    <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+                  ) : (
+                    categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               
@@ -348,7 +199,7 @@ export default function CollectionsPage() {
             </div>
 
             {/* Products Grid/List */}
-            {productsLoading ? (
+            {isLoadingProducts ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {[...Array(8)].map((_, i) => (
                   <div key={i} className="animate-pulse">
@@ -358,7 +209,7 @@ export default function CollectionsPage() {
                   </div>
                 ))}
               </div>
-            ) : products && products.length > 0 ? (
+            ) : products.length > 0 ? (
               <div className={
                 viewMode === "grid" 
                   ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
@@ -379,17 +230,19 @@ export default function CollectionsPage() {
             ) : (
               <div className="text-center py-16" data-testid="no-products-all">
                 <p className="text-muted-foreground text-lg mb-4">
-                  No products found matching your criteria.
+                  {isLoadingCategories ? 'Loading products...' : 'No products found matching your criteria.'}
                 </p>
-                <Button 
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedCategory("all");
-                  }} 
-                  variant="outline"
-                >
-                  Clear Filters
-                </Button>
+                {!isLoadingCategories && (
+                  <Button 
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedCategory("all");
+                    }} 
+                    variant="outline"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
               </div>
             )}
           </TabsContent>
