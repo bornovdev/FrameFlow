@@ -75,6 +75,7 @@ export default function HomePage() {
                 <Button 
                   variant="outline" 
                   size="lg"
+                  onClick={() => setLocation("/virtual-try-on")}
                   data-testid="button-virtual-try-on"
                 >
                   Virtual Try-On

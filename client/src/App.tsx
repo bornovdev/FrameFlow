@@ -17,6 +17,7 @@ import SettingsPage from "@/pages/settings-page";
 import Checkout from "@/pages/checkout";
 import AdminDashboard from "@/pages/admin-dashboard";
 import NotFound from "@/pages/not-found";
+import VirtualTryOn from "@/pages/virtual-try-on";
 
 function Router() {
   return (
@@ -31,6 +32,7 @@ function Router() {
       <ProtectedRoute path="/product/:slug" component={ProductDetail} />
       <ProtectedRoute path="/checkout" component={Checkout} />
       <ProtectedRoute path="/admin" component={AdminDashboard} adminOnly />
+      <Route path="/virtual-try-on" component={VirtualTryOn} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
