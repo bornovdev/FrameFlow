@@ -275,10 +275,12 @@ export default function AdminDashboard() {
     enabled: user?.role === 'admin' && activeSection === 'analytics',
   });
 
-  // Settings query
+  // Settings query - only fetch when in settings section
   const { data: settingsData, isLoading: isSettingsLoading } = useQuery<Record<string, string>>({
-    queryKey: ["/api/settings"],
+    queryKey: ["settings"],
     enabled: user?.role === 'admin' && activeSection === 'settings',
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
   });
 
   // Update settings form when data is loaded
@@ -682,12 +684,10 @@ export default function AdminDashboard() {
         title: "Settings Saved",
         description: "Your settings have been saved successfully.",
       });
-      // Force refresh of all queries that depend on settings
-      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
-      // Refetch settings data to update the context immediately
-      queryClient.refetchQueries({ queryKey: ["/api/settings"] });
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["adminStats"] });
     },
     onError: (error: any) => {
       toast({

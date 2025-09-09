@@ -33,11 +33,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   
   const { data: settingsData, isLoading } = useQuery<Record<string, string>>({
-    queryKey: ["/api/settings"],
-    retry: 3,
-    staleTime: 0, // Always refetch to get latest settings
-    refetchOnWindowFocus: true,
-    refetchInterval: 5000, // Refetch every 5 seconds to catch changes
+    queryKey: ["settings"],
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   useEffect(() => {
