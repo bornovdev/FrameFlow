@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { insertProductSchema, type InsertProduct, type Category, type Product, type User, type Order } from "@shared/schema";
+import { insertProductSchema, type InsertProduct, type Category, type Product, type User, type Order } from "../../shared/schema";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { toLocaleDateStringWithTimezone, toDateStringWithTimezone } from '@/lib/date-utils';
 import { 
