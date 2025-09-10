@@ -1,4 +1,8 @@
+import { useState } from 'react';
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
+import { motion, AnimatePresence } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { Product, Category } from "@shared/schema";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
@@ -7,13 +11,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState } from "react";
-import { useLocation } from "wouter";
 
 export default function HomePage() {
+  const [location, setLocation] = useLocation();
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [isButtonLoading, setIsButtonLoading] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [, setLocation] = useLocation();
+
+  const handleNavigation = (path: string, buttonId?: string) => {
+    if (buttonId) {
+      setIsButtonLoading(buttonId);
+    } else {
+      setIsNavigating(true);
+    }
+    
+    setTimeout(() => {
+      setLocation(path);
+    }, 600);
+  };
+  
+  const handleCategoryClick = (path: string) => {
+    handleNavigation(path);
+  };
 
   const { data: products, isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["/api/products", categoryFilter, searchQuery],
@@ -66,18 +86,35 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button 
                   size="lg" 
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
-                  onClick={() => setLocation("/collections")}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 relative"
+                  onClick={() => handleNavigation("/collections", "explore")}
                   data-testid="button-explore-collection"
+                  disabled={!!isButtonLoading}
                 >
-                  Explore Collection
+                  {isButtonLoading === "explore" ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Explore Collection'
+                  )}
                 </Button>
                 <Button 
                   variant="outline" 
                   size="lg"
+                  onClick={() => handleNavigation("/virtual-try-on", "tryon")}
                   data-testid="button-virtual-try-on"
+                  disabled={!!isButtonLoading}
                 >
-                  Virtual Try-On
+                  {isButtonLoading === "tryon" ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Virtual Try-On'
+                  )}
                 </Button>
               </div>
             </div>
@@ -100,6 +137,26 @@ export default function HomePage() {
             <p className="text-muted-foreground text-lg">Find the perfect frames for every occasion</p>
           </div>
           
+          <AnimatePresence>
+            {isNavigating && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center"
+              >
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="bg-card p-8 rounded-2xl shadow-xl flex flex-col items-center space-y-4"
+                >
+                  <Loader2 className="h-12 w-12 text-primary animate-spin" />
+                  <p className="text-lg font-medium">Loading collection...</p>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
           {categoriesLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {[1, 2, 3].map((i) => (
@@ -108,7 +165,12 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="group cursor-pointer">
+              <motion.div 
+                className="group cursor-pointer" 
+                onClick={() => handleCategoryClick('/collections/prescription-frames')}
+                whileHover={{ y: -5 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              >
                 <div className="bg-card rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300">
                   <img 
                     src="https://images.unsplash.com/photo-1509695507497-903c140c43b0?auto=format&fit=crop&w=600&h=400" 
@@ -121,9 +183,14 @@ export default function HomePage() {
                     <span className="text-primary font-medium">From $99</span>
                   </div>
                 </div>
-              </div>
+              </motion.div>
               
-              <div className="group cursor-pointer">
+              <motion.div 
+                className="group cursor-pointer" 
+                onClick={() => handleCategoryClick('/collections/sunglasses')}
+                whileHover={{ y: -5 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              >
                 <div className="bg-card rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300">
                   <img 
                     src="https://images.unsplash.com/photo-1572635196237-14b3f281503f?auto=format&fit=crop&w=600&h=400" 
@@ -136,9 +203,14 @@ export default function HomePage() {
                     <span className="text-primary font-medium">From $149</span>
                   </div>
                 </div>
-              </div>
+              </motion.div>
               
-              <div className="group cursor-pointer">
+              <motion.div 
+                className="group cursor-pointer" 
+                onClick={() => handleCategoryClick('/collections/reading-glasses')}
+                whileHover={{ y: -5 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              >
                 <div className="bg-card rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300">
                   <img 
                     src="https://images.unsplash.com/photo-1556306535-38febf6782e7?auto=format&fit=crop&w=600&h=400" 
@@ -151,7 +223,7 @@ export default function HomePage() {
                     <span className="text-primary font-medium">From $79</span>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             </div>
           )}
         </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Product, Category } from "@shared/schema";
 import Header from "@/components/header";
@@ -8,67 +8,69 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, Grid, List } from "lucide-react";
+import { Search, Filter, Grid, List, ArrowRight } from "lucide-react";
+import { Link } from "wouter";
+import { api } from "@/services/api";
 
 export default function CollectionsPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("newest");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
 
-  // Fetch all products
-  const { data: products, isLoading: productsLoading } = useQuery<Product[]>({
-    queryKey: ["/api/products"],
-    select: (data) => {
-      // Filter by category and search query
-      let filtered = data;
-      
-      if (selectedCategory !== "all") {
-        filtered = filtered.filter(product => product.categoryId === selectedCategory);
-      }
-      
-      if (searchQuery) {
-        filtered = filtered.filter(product => 
-          product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.brand?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      }
+  // Debounce search query
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
 
-      // Sort products
-      switch (sortBy) {
-        case "price-low":
-          return filtered.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
-        case "price-high":
-          return filtered.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
-        case "name":
-          return filtered.sort((a, b) => a.name.localeCompare(b.name));
-        case "brand":
-          return filtered.sort((a, b) => (a.brand || "").localeCompare(b.brand || ""));
-        default: // newest
-          return filtered.sort((a, b) => 
-            new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-          );
-      }
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [searchQuery]);
+
+  // Fetch all categories
+  const { data: categories = [], isLoading: isLoadingCategories } = useQuery<Category[]>({
+    queryKey: ['categories'],
+    queryFn: () => api.getCategories(),
+  });
+
+  // Fetch products with filters
+  const { data: products = [], isLoading: isLoadingProducts } = useQuery<Product[]>({
+    queryKey: ['products', { category: selectedCategory, search: debouncedSearchQuery, sort: sortBy }],
+    queryFn: () => api.getProducts({
+      categoryId: selectedCategory !== 'all' ? selectedCategory : undefined,
+      search: debouncedSearchQuery || undefined,
+      sortBy: sortBy,
+    }),
+  });
+
+  // Fetch featured products by category
+  const { data: featuredProductsByCategory = [] } = useQuery<Array<{ category: Category; products: Product[] }>>({
+    queryKey: ['featured-products-by-category'],
+    queryFn: async () => {
+      const featuredCategories = categories.slice(0, 3); // Get first 3 categories for featured sections
+      const results = await Promise.all(
+        featuredCategories.map(async (category) => {
+          const products = await api.getProductsByCategory(category.id, 4);
+          return { category, products };
+        })
+      );
+      return results.filter(item => item.products.length > 0);
     },
+    enabled: categories.length > 0,
   });
 
-  // Fetch categories
-  const { data: categories } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
-  });
-
-  // Group products by category for featured collections
-  const productsByCategory = categories?.map(category => ({
-    category,
-    products: products?.filter(product => product.categoryId === category.id).slice(0, 4) || []
-  })) || [];
+  // Get unique categories from products
+  const allCategories = categories;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
       
-      <main className="container mx-auto px-4 py-8">
+      <main className="flex-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-4" data-testid="collections-title">
@@ -88,7 +90,7 @@ export default function CollectionsPage() {
           {/* Featured Collections Tab */}
           <TabsContent value="featured">
             <div className="space-y-12">
-              {productsByCategory.map(({ category, products: categoryProducts }) => (
+              {featuredProductsByCategory.map(({ category, products: categoryProducts }) => (
                 <div key={category.id} className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -99,15 +101,24 @@ export default function CollectionsPage() {
                         {category.description}
                       </p>
                     </div>
-                    <Button variant="outline" data-testid={`view-all-${category.slug}`}>
-                      View All
-                    </Button>
+                    <Link href={`/collections/${category.slug}`}>
+                      <Button variant="outline" data-testid={`view-all-${category.slug}`}>
+                        View All <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
                   </div>
                   
                   {categoryProducts.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                       {categoryProducts.map((product) => (
-                        <ProductCard key={product.id} product={product} />
+                        <div key={product.id} className="h-full">
+                          <ProductCard 
+                            product={{
+                              ...product,
+                              description: product.description || `${product.name} - Premium quality eyewear`
+                            }} 
+                          />
+                        </div>
                       ))}
                     </div>
                   ) : (
@@ -141,11 +152,15 @@ export default function CollectionsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  {categories?.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
+                  {isLoadingCategories ? (
+                    <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+                  ) : (
+                    categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               
@@ -184,7 +199,7 @@ export default function CollectionsPage() {
             </div>
 
             {/* Products Grid/List */}
-            {productsLoading ? (
+            {isLoadingProducts ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {[...Array(8)].map((_, i) => (
                   <div key={i} className="animate-pulse">
@@ -194,34 +209,45 @@ export default function CollectionsPage() {
                   </div>
                 ))}
               </div>
-            ) : products && products.length > 0 ? (
+            ) : products.length > 0 ? (
               <div className={
                 viewMode === "grid" 
                   ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
                   : "space-y-4"
               }>
                 {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <div key={product.id} className="h-full">
+                    <ProductCard 
+                      product={{
+                        ...product,
+                        images: product.images || [''],
+                        description: product.description || `${product.name} - Premium quality eyewear`
+                      }} 
+                    />
+                  </div>
                 ))}
               </div>
             ) : (
               <div className="text-center py-16" data-testid="no-products-all">
                 <p className="text-muted-foreground text-lg mb-4">
-                  No products found matching your criteria.
+                  {isLoadingCategories ? 'Loading products...' : 'No products found matching your criteria.'}
                 </p>
-                <Button 
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedCategory("all");
-                  }} 
-                  variant="outline"
-                >
-                  Clear Filters
-                </Button>
+                {!isLoadingCategories && (
+                  <Button 
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedCategory("all");
+                    }} 
+                    variant="outline"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
               </div>
             )}
           </TabsContent>
         </Tabs>
+        </div>
       </main>
 
       <Footer />

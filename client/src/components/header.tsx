@@ -48,19 +48,35 @@ export default function Header() {
                   {settings.storeName}
                 </h1>
               </Link>
-              <nav className="hidden md:flex space-x-6">
-                <Link href="/" className={`transition-colors duration-200 ${
-                  location === "/" ? "text-primary" : "text-muted-foreground hover:text-primary"
-                }`} data-testid="link-frames">
-                  Frames
-                </Link>
-                <Link href="/sunglasses" className="text-muted-foreground hover:text-primary transition-colors duration-200" data-testid="link-sunglasses">
-                  Sunglasses
-                </Link>
-                <Link href="/reading-glasses" className="text-muted-foreground hover:text-primary transition-colors duration-200" data-testid="link-reading">
-                  Reading
-                </Link>
-                <Link href="/collections" className="text-muted-foreground hover:text-primary transition-colors duration-200" data-testid="link-collections">
+              <nav className="hidden md:flex items-center space-x-6">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="text-muted-foreground hover:text-primary">
+                      Shop
+                      <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link href="/collections/prescription-frames" className="w-full">Prescription Frames</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/collections/sunglasses" className="w-full">Sunglasses</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/collections/reading-glasses" className="w-full">Reading Glasses</Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Link 
+                  href="/collections" 
+                  className={`transition-colors duration-200 ${
+                    location === "/collections" ? "text-primary" : "text-muted-foreground hover:text-primary"
+                  }`} 
+                  data-testid="link-collections"
+                >
                   Collections
                 </Link>
               </nav>
