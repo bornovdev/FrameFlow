@@ -1,12 +1,37 @@
-import type { Express } from "express";
+import type { Express, Request as ExpressRequest, Response } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertProductSchema, insertCategorySchema } from "@shared/schema";
+import { insertProductSchema, insertCategorySchema } from "../shared/schema";
 import Stripe from "stripe";
+
+// Extend Express types
+declare global {
+  namespace Express {
+    interface User {
+      id: string;
+      email: string;
+      role: 'admin' | 'user';
+    }
+  }
+}
+
+declare module 'express-serve-static-core' {
+  interface Request {
+    isAuthenticated: () => boolean;
+    user?: Express.User;
+  }
+}
+
+// Extend the Request type to include user and isAuthenticated
+export interface AuthenticatedRequest extends ExpressRequest {
+  user?: Express.User;
+  isAuthenticated: () => boolean;
+}
 
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-08-27.basil",
+  typescript: true
 }) : null;
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -23,7 +48,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/categories", async (req, res) => {
+  app.post("/api/categories", async (req: AuthenticatedRequest, res: Response) => {
     if (!req.isAuthenticated() || req.user?.role !== 'admin') {
       return res.sendStatus(403);
     }
@@ -38,7 +63,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Products
-  app.get("/api/products", async (req, res) => {
+  app.get("/api/products", async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { categoryId, search } = req.query;
       const products = await storage.getProducts({
@@ -51,7 +76,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/products/:id", async (req, res) => {
+  app.get("/api/products/:id", async (req: AuthenticatedRequest, res: Response) => {
     try {
       const product = await storage.getProduct(req.params.id);
       if (!product) {
@@ -63,7 +88,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/products/slug/:slug", async (req, res) => {
+  app.get("/api/products/slug/:slug", async (req: AuthenticatedRequest, res: Response) => {
     try {
       const product = await storage.getProductBySlug(req.params.slug);
       if (!product) {
@@ -75,7 +100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products", async (req, res) => {
+  app.post("/api/products", async (req: AuthenticatedRequest, res: Response) => {
     if (!req.isAuthenticated() || req.user?.role !== 'admin') {
       return res.sendStatus(403);
     }
@@ -89,7 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/products/:id", async (req, res) => {
+  app.put("/api/products/:id", async (req: AuthenticatedRequest, res: Response) => {
     if (!req.isAuthenticated() || req.user?.role !== 'admin') {
       return res.sendStatus(403);
     }
@@ -103,7 +128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/products/:id", async (req, res) => {
+  app.delete("/api/products/:id", async (req: AuthenticatedRequest, res: Response) => {
     if (!req.isAuthenticated() || req.user?.role !== 'admin') {
       return res.sendStatus(403);
     }
@@ -117,8 +142,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cart
-  app.get("/api/cart", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/cart", async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.isAuthenticated() || !req.user?.id) return res.sendStatus(401);
 
     try {
       const cartItems = await storage.getCartItems(req.user.id);
@@ -128,8 +153,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/cart", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/cart", async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.isAuthenticated() || !req.user?.id) return res.sendStatus(401);
 
     try {
       const cartItem = await storage.addToCart({
@@ -142,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/cart/:id", async (req, res) => {
+  app.put("/api/cart/:id", async (req: AuthenticatedRequest, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
@@ -154,7 +179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/cart/:id", async (req, res) => {
+  app.delete("/api/cart/:id", async (req: AuthenticatedRequest, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
@@ -166,8 +191,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Orders
-  app.get("/api/orders", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/orders", async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.isAuthenticated() || !req.user) return res.sendStatus(401);
 
     try {
       const userId = req.user.role === 'admin' ? undefined : req.user.id;
@@ -178,8 +203,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/orders/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/orders/:id", async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.isAuthenticated() || !req.user?.id) return res.sendStatus(401);
 
     try {
       const order = await storage.getOrder(req.params.id);
@@ -213,8 +238,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Payment
-  app.post("/api/create-payment-intent", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/create-payment-intent", async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.isAuthenticated() || !req.user?.id) return res.sendStatus(401);
 
     try {
       const { amount, cartItems } = req.body;
@@ -253,8 +278,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/confirm-payment", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/confirm-payment", async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.isAuthenticated() || !req.user?.id) return res.sendStatus(401);
 
     try {
       const { paymentIntentId, shippingAddress } = req.body;

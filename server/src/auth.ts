@@ -1,11 +1,20 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
+import express, { Express, RequestHandler } from "express";
 import session from "express-session";
+import type { SessionOptions } from 'express-session';
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User as SelectUser } from "@shared/schema";
+import { User as SelectUser } from "../shared/schema";
+
+declare module 'express-session' {
+  interface SessionData {
+    passport: {
+      user: SelectUser;
+    };
+  }
+}
 
 declare global {
   namespace Express {
@@ -29,7 +38,8 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
-  const sessionSettings: session.SessionOptions = {
+  // Configure session settings
+  const sessionConfig: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "your-secret-key-here",
     resave: false,
     saveUninitialized: false,
@@ -37,11 +47,20 @@ export function setupAuth(app: Express) {
     cookie: {
       secure: process.env.NODE_ENV === 'production',
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+      httpOnly: true,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     },
   };
 
+  // Trust first proxy (for secure cookies in production)
   app.set("trust proxy", 1);
-  app.use(session(sessionSettings));
+  
+  // Initialize session middleware
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+  
+  const sessionMiddleware: RequestHandler = session(sessionConfig);
+  app.use(sessionMiddleware);
   app.use(passport.initialize());
   app.use(passport.session());
 
@@ -51,31 +70,40 @@ export function setupAuth(app: Express) {
       async (email, password, done) => {
         console.log('Login attempt for email:', email);
         const user = await storage.getUserByEmail(email);
-        
         if (!user) {
           console.log('User not found for email:', email);
           return done(null, false);
         }
-        
-        console.log('User found:', user.username, 'comparing passwords...');
-        const passwordMatch = await comparePasswords(password, user.password);
-        console.log('Password match result:', passwordMatch);
-        
-        if (!passwordMatch) {
+        const isValid = await comparePasswords(password, user.password);
+        if (!isValid) {
           console.log('Password mismatch for user:', user.username);
           return done(null, false);
         } else {
           console.log('Login successful for user:', user.username);
-          return done(null, user);
+          // Ensure the role is properly typed
+          const typedUser: Express.User = {
+            ...user,
+            role: (user.role === 'admin' ? 'admin' : 'user') as 'admin' | 'user'
+          };
+          return done(null, typedUser);
         }
       }
     )
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user: { id: string }, done) => done(null, user.id));
   passport.deserializeUser(async (id: string, done) => {
     const user = await storage.getUser(id);
-    done(null, user);
+    if (user) {
+      // Ensure the role is one of the allowed values
+      const typedUser: Express.User = {
+        ...user,
+        role: (user.role === 'admin' ? 'admin' : 'user') as 'admin' | 'user'
+      };
+      done(null, typedUser);
+    } else {
+      done(null, null);
+    }
   });
 
   app.post("/api/register", async (req, res, next) => {
@@ -95,7 +123,7 @@ export function setupAuth(app: Express) {
       role: "customer",
     });
 
-    req.login(user, (err) => {
+    req.login(user as Express.User, (err) => {
       if (err) return next(err);
       res.status(201).json(user);
     });

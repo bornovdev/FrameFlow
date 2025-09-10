@@ -1,4 +1,4 @@
-import { users, products, categories, orders, orderItems, cartItems, settings, type User, type InsertUser, type Product, type InsertProduct, type Category, type InsertCategory, type Order, type InsertOrder, type CartItem, type InsertCartItem, type OrderItem, type InsertOrderItem, type Settings, type InsertSettings } from "@shared/schema";
+import { users, products, categories, orders, orderItems, cartItems, settings, type User, type InsertUser, type Product, type InsertProduct, type Category, type InsertCategory, type Order, type InsertOrder, type CartItem, type InsertCartItem, type OrderItem, type InsertOrderItem, type Settings, type InsertSettings } from "../shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
 import session from "express-session";
@@ -105,7 +105,7 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
-      .values(insertUser)
+      .values(insertUser as any)
       .returning();
     return user;
   }
@@ -271,7 +271,7 @@ export class DatabaseStorage implements IStorage {
     const ordersResult = await ordersQuery;
 
     const ordersWithItems = await Promise.all(
-      ordersResult.map(async (order) => {
+      ordersResult.map(async (order: any) => {
         const items = await db
           .select({
             id: orderItems.id,
@@ -392,7 +392,7 @@ export class DatabaseStorage implements IStorage {
     
     while (currentDate <= now) {
       const dateStr = currentDate.toISOString().split('T')[0];
-      const existingData = salesData.find(d => d.date === dateStr);
+      const existingData = salesData.find((d: any) => d.date === dateStr);
       
       result.push({
         date: dateStr,
@@ -487,7 +487,7 @@ export class DatabaseStorage implements IStorage {
       activeProducts: productsResult.count,
       totalCustomers: customersResult.count,
       topProducts,
-      recentOrders: recentOrders.map(order => ({
+      recentOrders: recentOrders.map((order: any) => ({
         id: order.id,
         customer: order.customerName,
         product: order.productName,

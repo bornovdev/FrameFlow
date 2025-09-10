@@ -136,12 +136,12 @@ export const cartItemsRelations = relations(cartItems, ({ one }) => ({
 }));
 
 // Insert schemas
-export const insertUserSchema = createInsertSchema(users).omit({
+export const insertUserSchema = createInsertSchema(users, {
+  email: (schema) => schema.email('Please enter a valid email'),
+  password: (schema) => schema.min(6, 'Password must be at least 6 characters')
+}).omit({
   id: true,
-  createdAt: true,
-}).extend({
-  email: z.string().email(),
-  password: z.string().min(6),
+  createdAt: true
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({
@@ -172,18 +172,19 @@ export const insertSettingsSchema = createInsertSchema(settings).omit({
   updatedAt: true,
 });
 
+
 // Types
 export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertUser = typeof users.$inferInsert;
 export type Product = typeof products.$inferSelect;
-export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type InsertProduct = typeof products.$inferInsert;
 export type Order = typeof orders.$inferSelect;
-export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type InsertOrder = typeof orders.$inferInsert;
 export type OrderItem = typeof orderItems.$inferSelect;
-export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
+export type InsertOrderItem = typeof orderItems.$inferInsert;
 export type CartItem = typeof cartItems.$inferSelect;
-export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
+export type InsertCartItem = typeof cartItems.$inferInsert;
 export type Category = typeof categories.$inferSelect;
-export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type InsertCategory = typeof categories.$inferInsert;
 export type Settings = typeof settings.$inferSelect;
-export type InsertSettings = z.infer<typeof insertSettingsSchema>;
+export type InsertSettings = typeof settings.$inferInsert;
